@@ -1,3 +1,13 @@
+/**
+ * Project: Solo Lab 7 Assignment
+ * Purpose Details: A 2D space shooter game using Java where the player avoids and shoots obstacles.
+ * Course: IST 242
+ * Author: Alyssa Thompson
+ * Date Developed: 4/28
+ * Last Date Changed: 4/29
+ * Rev: 2.0
+ */
+
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
@@ -10,39 +20,87 @@ import java.io.IOException;
 import javax.imageio.ImageIO;
 import javax.sound.sampled.*;
 
+/**
+ * Main game class that creates the window and handles gameplay logic.
+ */
 public class SpaceGame extends JFrame implements KeyListener {
+    /** Width of the game window */
     private static final int WIDTH = 500;
+    /** Height of the game window */
     private static final int HEIGHT = 500;
+    /** Player dimensions */
     private static final int PLAYER_WIDTH = 50;
     private static final int PLAYER_HEIGHT = 50;
+    /** Obstacle dimensions */
     private static final int OBSTACLE_WIDTH = 20;
     private static final int OBSTACLE_HEIGHT = 20;
+    /** Projectile dimensions */
     private static final int PROJECTILE_WIDTH = 5;
     private static final int PROJECTILE_HEIGHT = 10;
+    /** Movement speeds */
     private static final int PLAYER_SPEED = 50;
     private static final int OBSTACLE_SPEED = 3;
     private static final int PROJECTILE_SPEED = 10;
+    /** Player score */
     private int score = 0;
 
+    /** Main game panel */
     private JPanel gamePanel;
+
+    /** Label displaying score */
     private JLabel scoreLabel;
+
+    /** Game loop timer */
     private Timer timer;
+
+    /** Indicates if the game is over */
     private boolean isGameOver;
+
+    /** Player position */
     private int playerX, playerY;
+
+    /** Projectile position */
     private int projectileX, projectileY;
+
+    /** Projectile visibility flag */
     private boolean isProjectileVisible;
+
+    /** Prevents rapid firing */
     private boolean isFiring;
-    private java.util.List<Point> obstacles;
+
+    /** List of obstacles */
+    private List<Point> obstacles;
+
+    /** Background stars */
     private List<Point> stars;
+
+    /** Player ship image */
     private BufferedImage shipImage;
+
+    /** Sprite sheet for obstacles */
     private BufferedImage spriteSheet;
+
+    /** Sprite dimensions */
     private int spriteWidth = 64;
     private int spriteHeight = 64;
+
+    /** Sound clip for firing */
     private Clip clip;
+
+    /** Shield state */
     private boolean shieldActive = false;
+
+    /** Shield duration in milliseconds */
     private int shieldDuration = 5000;
+    /** Time when shield was activated */
     private long shieldStarTime;
 
+    /**
+     * Generates random star positions.
+     *
+     * @param numStars number of stars to generate
+     * @return list of star positions
+     */
     private List<Point> generateStars(int numStars){
         List<Point> starsList = new ArrayList<>();
         Random random = new Random();
@@ -54,25 +112,30 @@ public class SpaceGame extends JFrame implements KeyListener {
         return starsList;
     }
 
+    /** Activates shield */
     private void activateShield(){
         shieldActive = true;
         shieldStarTime = System.currentTimeMillis();
     }
-
+    /** Deactivates shield */
     private void deactivateShield(){
         shieldActive = false;
     }
-
+    /**
+     * Checks if shield is active.
+     *
+     * @return true if active
+     */
     private boolean isShieldActive(){
         return shieldActive && (System.currentTimeMillis() - shieldStarTime) < shieldDuration;
     }
-
+    /** Resets game state */
     private void reset(){
         score = 0;
         isGameOver = false;
         repaint();
     }
-
+    /** Constructor initializes game */
     public SpaceGame() {
 
         try {
@@ -96,6 +159,9 @@ public class SpaceGame extends JFrame implements KeyListener {
         setResizable(false);
 
         gamePanel = new JPanel() {
+            /**
+             * Paints game graphics.
+             */
             @Override
             protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
@@ -133,6 +199,7 @@ public class SpaceGame extends JFrame implements KeyListener {
         timer.start();
     }
 
+    /** Plays firing sound */
     public void playSound(){
         if(clip != null){
             clip.setFramePosition(0);
@@ -148,6 +215,11 @@ public class SpaceGame extends JFrame implements KeyListener {
         return new Color(r,g,b);
     }
 
+    /**
+     * Draws all game elements.
+     *
+     * @param g graphics object
+     */
     private void draw(Graphics g) {
         g.setColor(Color.BLACK);
         g.fillRect(0, 0, WIDTH, HEIGHT);
@@ -197,6 +269,7 @@ public class SpaceGame extends JFrame implements KeyListener {
         }
     }
 
+    /** Updates game state */
     private void update() {
         if (!isGameOver) {
             // Move obstacles
@@ -250,6 +323,7 @@ public class SpaceGame extends JFrame implements KeyListener {
         }
     }
 
+    /** Handles key press events */
     @Override
     public void keyPressed(KeyEvent e) {
         int keyCode = e.getKeyCode();
@@ -287,6 +361,7 @@ public class SpaceGame extends JFrame implements KeyListener {
     @Override
     public void keyReleased(KeyEvent e) {}
 
+    /** Launches the game */
     public static void main(String[] args) {
         SwingUtilities.invokeLater(new Runnable() {
             @Override
