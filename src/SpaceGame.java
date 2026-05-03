@@ -41,14 +41,18 @@ public class SpaceGame extends JFrame implements KeyListener {
     private static final int PLAYER_SPEED = 50;
     private static final int OBSTACLE_SPEED = 3;
     private static final int PROJECTILE_SPEED = 10;
-    /** Player score */
+
+    /** Player stats */
     private int score = 0;
+    private int health = 100;
+    private int level = 1;
+    private int timeLeft = 60;
 
-    /** Main game panel */
+    /** JPanel */
     private JPanel gamePanel;
-
-    /** Label displaying score */
     private JLabel scoreLabel;
+    private JLabel healthLabel;
+    private JLabel timerLabel;
 
     /** Game loop timer */
     private Timer timer;
@@ -68,11 +72,10 @@ public class SpaceGame extends JFrame implements KeyListener {
     /** Prevents rapid firing */
     private boolean isFiring;
 
-    /** List of obstacles */
-    private List<Point> obstacles;
-
-    /** Background stars */
-    private List<Point> stars;
+    /** Lists */
+    private List<Point> obstacles = new ArrayList<>();
+    private List<Point> stars = new ArrayList<>();
+    private List<Point> healthPacks = new ArrayList<>();
 
     /** Player ship image */
     private BufferedImage shipImage;
@@ -89,11 +92,12 @@ public class SpaceGame extends JFrame implements KeyListener {
 
     /** Shield state */
     private boolean shieldActive = false;
-
     /** Shield duration in milliseconds */
     private int shieldDuration = 5000;
     /** Time when shield was activated */
     private long shieldStarTime;
+
+    private long lastSecondTick = System.currentTimeMillis();
 
     /**
      * Generates random star positions.
@@ -141,14 +145,14 @@ public class SpaceGame extends JFrame implements KeyListener {
         try {
             shipImage = ImageIO.read(new File("ship.png"));
             spriteSheet = ImageIO.read(new File("astro.png"));
-            AudioInputStream audioInputStream = AudioSystem.getAudioInputStream(new File("fire.flac").getAbsoluteFile());
+            AudioInputStream audioInputStream = AudioSystem.getAudioInputStream(new File("fire.wav").getAbsoluteFile());
             clip = AudioSystem.getClip();
             clip.open(audioInputStream);
-        } catch(LineUnavailableException ex) {
+        } catch (LineUnavailableException ex) {
             ex.printStackTrace();
-        } catch(UnsupportedAudioFileException ex){
+        } catch (UnsupportedAudioFileException ex) {
             ex.printStackTrace();
-        } catch (IOException ex){
+        } catch (IOException ex) {
             ex.printStackTrace();
         }
 
@@ -169,10 +173,17 @@ public class SpaceGame extends JFrame implements KeyListener {
             }
         };
 
-        scoreLabel = new JLabel("Score: 0");
-        scoreLabel.setBounds(10, 10, 100, 20);
-        scoreLabel.setForeground(Color.GREEN);
+        scoreLabel = new JLabel("Score: 0 | Level: 1");
+        scoreLabel.setForeground(Color.BLUE);
         gamePanel.add(scoreLabel);
+
+        healthLabel = new JLabel("Health: 100");
+        healthLabel.setForeground(Color.RED);
+        gamePanel.add(healthLabel);
+
+        timerLabel = new JLabel("Time: 60");
+        timerLabel.setForeground(Color.YELLOW);
+        gamePanel.add(timerLabel);
 
         add(gamePanel);
         gamePanel.setFocusable(true);
@@ -187,13 +198,10 @@ public class SpaceGame extends JFrame implements KeyListener {
         isFiring = false;
         obstacles = new java.util.ArrayList<>();
 
-        timer = new Timer(20, new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                if (!isGameOver) {
-                    update();
-                    gamePanel.repaint();
-                }
+        timer = new Timer(20, e -> {
+            if (!isGameOver) {
+                update();
+                repaint();
             }
         });
         timer.start();
@@ -251,6 +259,12 @@ public class SpaceGame extends JFrame implements KeyListener {
                         spriteHeight),obstacle.x, obstacle.y, null);
             }
         }
+
+        g.setColor(Color.GREEN);
+        for (Point p : healthPacks){
+            g.fillRect(p.x, p.y, 15,15);
+        }
+
         g.setColor(generateRandomColor());
         //g.setColor(Color.WHITE);
         for (Point star : stars){
@@ -271,55 +285,93 @@ public class SpaceGame extends JFrame implements KeyListener {
 
     /** Updates game state */
     private void update() {
-        if (!isGameOver) {
-            // Move obstacles
-            for (int i = 0; i < obstacles.size(); i++) {
-                obstacles.get(i).y += OBSTACLE_SPEED;
-                if (obstacles.get(i).y > HEIGHT) {
-                    obstacles.remove(i);
-                    i--;
-                }
-            }
 
-            // Generate new obstacles
-            if (Math.random() < 0.02) {
-                int obstacleX = (int) (Math.random() * (WIDTH - OBSTACLE_WIDTH));
-                obstacles.add(new Point(obstacleX, 0));
-            }
-            if (Math.random() < 0.1){
-                stars = generateStars(200);
-            }
-            // Move projectile
-            if (isProjectileVisible) {
-                projectileY -= PROJECTILE_SPEED;
-                if (projectileY < 0) {
-                    isProjectileVisible = false;
-                }
-            }
+        // Timer countdown
+        if (System.currentTimeMillis() - lastSecondTick >= 1000){
+            timeLeft--;
+            timerLabel.setText("Time: " + timeLeft);
+            lastSecondTick = System.currentTimeMillis();
+            if (timeLeft <= 0) isGameOver = true;
+        }
 
-            // Check collision with player
-            Rectangle playerRect = new Rectangle(playerX, playerY, PLAYER_WIDTH, PLAYER_HEIGHT);
-            for (Point obstacle : obstacles) {
-                Rectangle obstacleRect = new Rectangle(obstacle.x, obstacle.y, OBSTACLE_WIDTH, OBSTACLE_HEIGHT);
-                if (playerRect.intersects(obstacleRect) && !isShieldActive()) {
-                    isGameOver = true;
-                    break;
-                }
-            }
+        // Level scaling
+        if (score >= 100) level = 3;
+        else if (score >= 50) level = 2;
 
-            // Check collision with obstacle
-            Rectangle projectileRect = new Rectangle(projectileX, projectileY, PROJECTILE_WIDTH, PROJECTILE_HEIGHT);
-            for (int i = 0; i < obstacles.size(); i++) {
-                Rectangle obstacleRect = new Rectangle(obstacles.get(i).x, obstacles.get(i).y, OBSTACLE_WIDTH, OBSTACLE_HEIGHT);
-                if (projectileRect.intersects(obstacleRect)) {
-                    obstacles.remove(i);
-                    score += 10;
-                    isProjectileVisible = false;
-                    break;
-                }
-            }
+        scoreLabel.setText("Score: " + score + " | Level: " + level);
+        healthLabel.setText("Health: " + health);
 
-            scoreLabel.setText("Score: " + score);
+        // Move obstacles
+        for (int i = 0; i < obstacles.size(); i++) {
+            obstacles.get(i).y += OBSTACLE_SPEED + level;
+            if (obstacles.get(i).y > HEIGHT) {
+                obstacles.remove(i);
+                i--;
+            }
+        }
+
+        // Spawn obstacles
+        if (Math.random() < 0.02 + level * 0.01) {
+            int obstacleX = (int) (Math.random() * (WIDTH - OBSTACLE_WIDTH));
+            obstacles.add(new Point(obstacleX, 0));
+        }
+
+        // Spawn health packs
+        if (Math.random() < 0.01){
+            healthPacks.add(new Point(new Random().nextInt(WIDTH),0));
+        }
+
+        // Move health packs
+        for (Point p : healthPacks) {
+            p.y += 2;
+        }
+
+        // Stars refresh
+        if (Math.random() < 0.1){
+            stars = generateStars(200);
+        }
+
+        // Move projectile
+        if (isProjectileVisible) {
+            projectileY -= PROJECTILE_SPEED;
+            if (projectileY < 0) {
+                isProjectileVisible = false;
+            }
+        }
+
+        Rectangle playerRect = new Rectangle(playerX, playerY, PLAYER_WIDTH, PLAYER_HEIGHT);
+
+        // Player vs obstacles
+        for (int i = 0; i < obstacles.size(); i++) {
+            Rectangle r = new Rectangle(obstacles.get(i).x, obstacles.get(i).y, OBSTACLE_WIDTH, OBSTACLE_HEIGHT);
+            if (playerRect.intersects(r) && !isShieldActive()) {
+                health -= 20;
+                obstacles.remove(i);
+                if (health <= 0) isGameOver = true;
+                break;
+            }
+        }
+
+        // Player vs health packs
+        for (int i = 0; i < healthPacks.size(); i++){
+            Rectangle rect = new Rectangle(healthPacks.get(i).x, healthPacks.get(i).y,15,15);
+            if (playerRect.intersects(rect)){
+                health = Math.min(100,health + 20);
+                healthPacks.remove(i);
+                break;
+            }
+        }
+
+        // Projectile collisions
+        Rectangle projectileRect = new Rectangle(projectileX, projectileY, PROJECTILE_WIDTH, PROJECTILE_HEIGHT);
+        for (int i = 0; i < obstacles.size(); i++) {
+            Rectangle obstacleRect = new Rectangle(obstacles.get(i).x, obstacles.get(i).y, OBSTACLE_WIDTH, OBSTACLE_HEIGHT);
+            if (projectileRect.intersects(obstacleRect)) {
+                obstacles.remove(i);
+                score += 10;
+                isProjectileVisible = false;
+                break;
+            }
         }
     }
 
